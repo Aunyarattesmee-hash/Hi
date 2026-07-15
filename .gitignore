@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ข้อมูลที่ระบบสร้างขึ้นเอง (ไม่ commit)
+device/data/
+backend/data/
+*.db
+*.sqlite3
+*.joblib
+
+# ภาพที่ถ่าย
+**/images/*.jpg
+**/images/*.png
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.log

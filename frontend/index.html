@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบติดตามและประเมินค่าฝุ่น PM2.5</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ========================= Sidebar ========================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">☁️</div>
+      <div class="brand-text">
+        <strong>PM2.5 Monitor</strong>
+        <span>AI Air Quality</span>
+      </div>
+    </div>
+
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-view="dashboard"><span class="ic">🏠</span> Dashboard</button>
+      <button class="nav-item" data-view="trend"><span class="ic">📈</span> Trend</button>
+      <button class="nav-item" data-view="history"><span class="ic">🕑</span> History</button>
+      <button class="nav-item" data-view="export"><span class="ic">📤</span> Data Export</button>
+      <button class="nav-item" data-view="settings"><span class="ic">⚙️</span> Settings</button>
+      <button class="nav-item" data-view="about"><span class="ic">ℹ️</span> About</button>
+    </nav>
+
+    <div class="location-card">
+      <div class="loc-mountain">🏔️</div>
+      <div class="loc-title">📍 สถานที่ติดตั้ง</div>
+      <div class="loc-name" id="stationName">—</div>
+    </div>
+  </aside>
+
+  <!-- ========================= Main ========================= -->
+  <div class="main">
+
+    <!-- Header -->
+    <header class="topbar">
+      <div class="topbar-title">
+        <div class="topbar-icon">🌤️</div>
+        <div>
+          <h1>ระบบติดตามและประเมินค่าฝุ่น PM2.5</h1>
+          <p>AI-based Air Quality Monitoring System</p>
+        </div>
+      </div>
+      <div class="topbar-meta">
+        <span id="headerDate">📅 —</span>
+        <span id="headerTime">🕒 —</span>
+        <button id="refreshBtn" class="refresh-btn" title="รีเฟรชข้อมูล">🔄</button>
+      </div>
+    </header>
+
+    <!-- ===== View: Dashboard ===== -->
+    <section class="view active" id="view-dashboard">
+      <div class="cards-row">
+
+        <!-- PM2.5 card -->
+        <div class="card card-pm">
+          <div class="card-head">
+            <span class="card-title-orange">PM2.5 (µg/m³)</span>
+            <span class="info-dot" title="ค่าฝุ่นละอองขนาดไม่เกิน 2.5 ไมครอน">ⓘ</span>
+          </div>
+          <div class="pm-value" id="pmValue">—</div>
+          <div class="pm-quality" id="pmQuality">—</div>
+          <div class="pm-badge" id="pmBadge">—</div>
+          <div class="pm-scale">
+            <div class="pm-scale-bar">
+              <span style="background:#2e7d32"></span>
+              <span style="background:#9ccc65"></span>
+              <span style="background:#ffb300"></span>
+              <span style="background:#fb8c00"></span>
+              <span style="background:#e53935"></span>
+            </div>
+            <div class="pm-scale-marker" id="pmMarker"></div>
+            <div class="pm-scale-labels">
+              <span>0</span><span>25</span><span>37.5</span>
+              <span>75</span><span>115</span><span>150+</span>
+            </div>
+          </div>
+          <div class="pm-updated">อัปเดตล่าสุด: <span id="pmUpdated">—</span></div>
+        </div>
+
+        <!-- Webcam card -->
+        <div class="card card-image">
+          <div class="card-head">
+            <span class="card-title">Image (Webcam)</span>
+            <span class="live-badge"><i></i> Live</span>
+          </div>
+          <div class="webcam-wrap">
+            <img id="webcamImg" alt="ภาพท้องฟ้าจากกล้อง" src="/api/latest-image">
+            <div class="webcam-ts" id="webcamTs">—</div>
+          </div>
+        </div>
+
+        <!-- Temperature card -->
+        <div class="card card-metric">
+          <div class="card-head"><span class="card-title-blue">Temperature (°C)</span></div>
+          <div class="metric-icon">🌡️</div>
+          <div class="metric-value" id="tempValue">—</div>
+          <div class="metric-label">อุณหภูมิ</div>
+        </div>
+
+        <!-- Humidity card -->
+        <div class="card card-metric">
+          <div class="card-head"><span class="card-title-purple">Humidity (%)</span></div>
+          <div class="metric-icon">💧</div>
+          <div class="metric-value metric-purple" id="humValue">—</div>
+          <div class="metric-label">ความชื้นสัมพัทธ์</div>
+        </div>
+      </div>
+
+      <div class="cards-row-2">
+        <!-- Trend -->
+        <div class="card card-trend">
+          <div class="card-head">
+            <span class="card-title-dark">Trend <small>(แนวโน้มค่า PM2.5)</small></span>
+            <div class="trend-controls">
+              <div class="range-tabs" id="rangeTabs">
+                <button class="range-tab active" data-range="today">วันนี้</button>
+                <button class="range-tab" data-range="7d">7 วัน</button>
+                <button class="range-tab" data-range="30d">30 วัน</button>
+              </div>
+              <select id="metricSelect" class="metric-select">
+                <option value="pm2_5">PM2.5 (µg/m³)</option>
+                <option value="temperature">Temperature (°C)</option>
+                <option value="humidity">Humidity (%)</option>
+              </select>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="trendChart"></canvas>
+          </div>
+          <div class="chart-legend" id="chartLegend">
+            <span><i style="background:#2e7d32"></i>ดีมาก (0-15)</span>
+            <span><i style="background:#9ccc65"></i>ดี (15.1-25)</span>
+            <span><i style="background:#ffb300"></i>ปานกลาง (25.1-37.5)</span>
+            <span><i style="background:#fb8c00"></i>เริ่มมีผลต่อสุขภาพ (37.6-75)</span>
+            <span><i style="background:#e53935"></i>มีผลกระทบต่อสุขภาพ (75.1+)</span>
+          </div>
+        </div>
+
+        <!-- History -->
+        <div class="card card-history">
+          <div class="card-head">
+            <span class="card-title-dark">History <small>(ประวัติข้อมูลล่าสุด)</small></span>
+          </div>
+          <div class="table-wrap">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>Datetime</th>
+                  <th>PM2.5<br><small>(µg/m³)</small></th>
+                  <th>Temp<br><small>(°C)</small></th>
+                  <th>Hum<br><small>(%)</small></th>
+                  <th>Image</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody">
+                <tr><td colspan="5" class="empty">กำลังโหลด...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="foot-note">
+        ⓘ หมายเหตุ: ข้อมูล PM2.5 ได้จากการประเมินโดยโมเดล AI จากภาพถ่าย
+        และเปรียบเทียบกับค่าที่วัดได้จากเซนเซอร์ PMS5003
+      </div>
+    </section>
+
+    <!-- ===== View: Trend (เต็มจอ) ===== -->
+    <section class="view" id="view-trend">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title-dark">แนวโน้มค่า PM2.5 (Trend)</span>
+          <div class="range-tabs" id="rangeTabs2">
+            <button class="range-tab active" data-range="today">วันนี้</button>
+            <button class="range-tab" data-range="7d">7 วัน</button>
+            <button class="range-tab" data-range="30d">30 วัน</button>
+          </div>
+        </div>
+        <div class="chart-wrap tall"><canvas id="trendChartFull"></canvas></div>
+        <div class="stat-grid" id="trendStats"></div>
+      </div>
+    </section>
+
+    <!-- ===== View: History (เต็มจอ) ===== -->
+    <section class="view" id="view-history">
+      <div class="card">
+        <div class="card-head">
+          <span class="card-title-dark">ประวัติข้อมูลย้อนหลัง</span>
+          <select id="historyLimit" class="metric-select">
+            <option value="20">20 รายการ</option>
+            <option value="50">50 รายการ</option>
+            <option value="100">100 รายการ</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Datetime</th><th>PM2.5 (µg/m³)</th><th>PMS5003</th>
+                <th>Temp (°C)</th><th>Hum (%)</th><th>หมอกควัน</th>
+                <th>เชื่อมั่น</th><th>Image</th>
+              </tr>
+            </thead>
+            <tbody id="historyFullBody">
+              <tr><td colspan="8" class="empty">กำลังโหลด...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== View: Data Export ===== -->
+    <section class="view" id="view-export">
+      <div class="card info-card">
+        <h2>📤 ส่งออกข้อมูล (Data Export)</h2>
+        <p>ดาวน์โหลดข้อมูลการตรวจวัดทั้งหมดในรูปแบบไฟล์ CSV
+           เพื่อนำไปวิเคราะห์ต่อ (เปิดด้วย Excel / Google Sheets ได้)</p>
+        <a class="btn-primary" href="/api/export.csv">⬇️ ดาวน์โหลด CSV ทั้งหมด</a>
+        <p class="hint">ไฟล์ประกอบด้วย: เวลา, PM2.5 (AI), PM2.5 (เซนเซอร์),
+           อุณหภูมิ, ความชื้น, ระดับหมอกควัน, ค่าความเชื่อมั่น และชื่อไฟล์ภาพ</p>
+      </div>
+    </section>
+
+    <!-- ===== View: Settings ===== -->
+    <section class="view" id="view-settings">
+      <div class="card info-card">
+        <h2>⚙️ ตั้งค่า (Settings)</h2>
+        <div class="setting-row">
+          <label>รอบรีเฟรชอัตโนมัติ (วินาที)</label>
+          <input type="number" id="refreshInterval" value="30" min="5" max="600">
+        </div>
+        <div class="setting-row">
+          <label>สถานีตรวจวัด</label>
+          <span id="settingsStation">—</span>
+        </div>
+        <button class="btn-primary" id="saveSettings">บันทึกการตั้งค่า</button>
+        <p class="hint">การตั้งค่าถูกจัดเก็บในเบราว์เซอร์ของคุณ (localStorage)</p>
+      </div>
+    </section>
+
+    <!-- ===== View: About ===== -->
+    <section class="view" id="view-about">
+      <div class="card info-card">
+        <h2>ℹ️ เกี่ยวกับระบบ (About)</h2>
+        <p><strong>ระบบติดตามและประเมินค่าฝุ่น PM2.5 ด้วย AI</strong></p>
+        <p>ระบบนี้ใช้กล้อง Webcam ถ่ายภาพท้องฟ้า แล้วใช้โมเดล AI ประเมินค่าฝุ่น PM2.5
+           จากลักษณะหมอกควันในภาพ โดยเทียบเคียงกับค่าจริงจากเซนเซอร์ PMS5003</p>
+        <ul>
+          <li><strong>อุปกรณ์:</strong> Raspberry Pi 5, Logitech C270 Webcam,
+              PMS5003 (เซนเซอร์ฝุ่น), DHT22 (อุณหภูมิ/ความชื้น), Micro SD Card,
+              อุปกรณ์จ่ายไฟ USB-C PD</li>
+          <li><strong>โมเดล AI:</strong> สกัดฟีเจอร์หมอกควันจากภาพ + Gradient Boosting Regression</li>
+          <li><strong>หลังบ้าน:</strong> Python Flask + SQLite</li>
+          <li><strong>หน้าบ้าน:</strong> HTML / CSS / JavaScript (Dashboard)</li>
+        </ul>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

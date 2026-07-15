@@ -1,0 +1,18 @@
+# ไลบรารีสำหรับ Raspberry Pi 5 (ฝั่งอุปกรณ์)
+# ติดตั้งด้วย: pip install -r requirements.txt
+
+# กล้อง + ประมวลผลภาพ
+opencv-python-headless>=4.8
+numpy>=1.24
+
+# เซนเซอร์
+pyserial>=3.5                      # PMS5003 (UART)
+adafruit-circuitpython-dht>=4.0    # DHT22
+# บน Raspberry Pi ต้องมี libgpiod:  sudo apt install libgpiod2
+
+# โมเดล AI
+scikit-learn>=1.3
+joblib>=1.3
+
+# ส่งข้อมูลขึ้น backend
+requests>=2.31
