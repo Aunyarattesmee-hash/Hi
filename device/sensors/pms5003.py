@@ -1,14 +1,16 @@
 """
-อ่านค่าจากเซนเซอร์ฝุ่น PMS5003 (Plantower) ผ่าน UART
+อ่านค่าจากเซนเซอร์ฝุ่น Plantower ผ่าน UART
+รองรับทั้ง PMS5003 (frame 32 ไบต์) และ PMS3003 (frame 24 ไบต์) โดยอัตโนมัติ
 
-PMS5003 ส่งข้อมูลเป็น frame ขนาด 32 ไบต์ ขึ้นต้นด้วย 0x42 0x4d
-ให้ค่า PM1.0 / PM2.5 / PM10 ทั้งแบบ CF=1 (มาตรฐานโรงงาน) และ atmospheric
+ทุกรุ่นขึ้นต้นด้วย 0x42 0x4d ตามด้วยความยาว frame แล้วจึงเป็นค่า
+PM1.0 / PM2.5 / PM10 ทั้งแบบ CF=1 และ atmospheric (ตำแหน่งเดียวกันทั้งสองรุ่น)
+โค้ดนี้อ่านความยาว frame จากตัวข้อมูลเอง จึงใช้ได้กับทั้ง PMS3003 และ PMS5003
 
 การต่อสาย (Raspberry Pi 5):
-    PMS5003 VCC  -> 5V   (pin 2)
-    PMS5003 GND  -> GND  (pin 6)
-    PMS5003 TX   -> Pi RXD GPIO15 (pin 10)
-    PMS5003 RX   -> Pi TXD GPIO14 (pin 8)
+    VCC  -> 5V   (pin 2)
+    GND  -> GND  (pin 6)
+    TX   -> Pi RXD GPIO15 (pin 10)
+    RX   -> Pi TXD GPIO14 (pin 8)
 เปิด serial ด้วย: sudo raspi-config -> Interface Options -> Serial Port
 (ปิด login shell, เปิด hardware serial)
 """
@@ -59,9 +61,11 @@ class PMS5003:
             self._ser.close()
 
     def _read_frame(self) -> bytes | None:
-        """หา start bytes แล้วอ่าน frame ที่เหลือ 30 ไบต์"""
+        """
+        หา start bytes (0x42 0x4d) แล้วอ่านความยาว frame จากตัวข้อมูลเอง
+        รองรับทั้ง PMS3003 (length=20 -> รวม 24 ไบต์) และ PMS5003 (length=28 -> รวม 32 ไบต์)
+        """
         ser = self._ser
-        # หาไบต์เริ่มต้น 0x42
         start = time.time()
         while time.time() - start < self.timeout:
             b = ser.read(1)
@@ -70,28 +74,35 @@ class PMS5003:
             if b == b"\x42":
                 nxt = ser.read(1)
                 if nxt == b"\x4d":
-                    rest = ser.read(self.FRAME_LEN - 2)
-                    if len(rest) == self.FRAME_LEN - 2:
-                        return self.START_BYTES + rest
+                    len_bytes = ser.read(2)          # ไบต์ 2-3 = ความยาวส่วนที่เหลือ
+                    if len(len_bytes) != 2:
+                        continue
+                    body_len = struct.unpack(">H", len_bytes)[0]
+                    # กันค่าเพี้ยน (PMS3003=20, PMS5003=28)
+                    if body_len not in (20, 28):
+                        continue
+                    body = ser.read(body_len)        # ข้อมูล + checksum
+                    if len(body) == body_len:
+                        return self.START_BYTES + len_bytes + body
         return None
 
     @staticmethod
     def _validate(frame: bytes) -> bool:
-        """ตรวจสอบ checksum (ผลรวมไบต์ 0..29 == ค่าใน 2 ไบต์สุดท้าย)"""
-        if len(frame) != PMS5003.FRAME_LEN:
+        """ตรวจ checksum: ผลรวมทุกไบต์ ยกเว้น 2 ไบต์สุดท้าย == ค่าใน 2 ไบต์สุดท้าย"""
+        if len(frame) < 24:
             return False
-        checksum = sum(frame[:30])
-        expected = struct.unpack(">H", frame[30:32])[0]
+        checksum = sum(frame[:-2])
+        expected = struct.unpack(">H", frame[-2:])[0]
         return checksum == expected
 
     def read(self, retries: int = 5) -> PMReading:
-        """อ่านค่า 1 ครั้ง (พยายามซ้ำหาก frame เสีย)"""
+        """อ่านค่า 1 ครั้ง (พยายามซ้ำหาก frame เสีย) — ใช้ได้ทั้ง PMS3003/PMS5003"""
         if self._ser is None or not self._ser.is_open:
             self.open()
         for _ in range(retries):
             frame = self._read_frame()
             if frame and self._validate(frame):
-                # ไบต์ 4..15 เป็น 6 ค่า uint16 big-endian
+                # ไบต์ 4..15 เป็น 6 ค่า uint16 big-endian (ตำแหน่งเดียวกันทั้งสองรุ่น)
                 # 0:PM1.0(CF1) 1:PM2.5(CF1) 2:PM10(CF1)
                 # 3:PM1.0(atm) 4:PM2.5(atm) 5:PM10(atm)
                 vals = struct.unpack(">6H", frame[4:16])
@@ -100,7 +111,7 @@ class PMS5003:
                     pm2_5=float(vals[4]),
                     pm10=float(vals[5]),
                 )
-        raise IOError("อ่านค่า PMS5003 ไม่สำเร็จ (checksum ผิดพลาดทุกครั้ง)")
+        raise IOError("อ่านค่าเซนเซอร์ฝุ่นไม่สำเร็จ (checksum ผิดพลาดทุกครั้ง)")
 
     def __enter__(self):
         self.open()
