@@ -1,0 +1,8 @@
+# ไลบรารีสำหรับส่วน Edge Impulse
+requests>=2.31            # อัปโหลดผ่าน Ingestion API
+opencv-python>=4.8        # อ่าน/แปลงภาพ
+
+# สำหรับรันโมเดล .eim บน Raspberry Pi 5 (ติดตั้งบน Pi เท่านั้น)
+#   pip install edge_impulse_linux
+# และ Edge Impulse CLI (ผ่าน npm):
+#   npm install -g edge-impulse-cli

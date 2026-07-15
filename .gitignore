@@ -17,6 +17,9 @@ backend/data/
 **/images/*.jpg
 **/images/*.png
 
+# ผลลัพธ์ที่ export_dataset.py สร้างขึ้น (regenerate ได้)
+edge_impulse/export/
+
 # OS / editor
 .DS_Store
 .idea/

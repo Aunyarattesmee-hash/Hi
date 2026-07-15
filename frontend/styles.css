@@ -167,6 +167,7 @@ body {
 }
 .chart-wrap { height: 240px; position: relative; }
 .chart-wrap.tall { height: 420px; }
+.chart-wrap canvas { display: block; width: 100% !important; height: 100% !important; }
 .chart-legend {
   display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px;
   font-size: 10.5px; color: var(--muted); justify-content: center;
