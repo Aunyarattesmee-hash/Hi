@@ -64,31 +64,50 @@ def load_model():
 # การอ่านค่าจริงจากฮาร์ดแวร์
 # ---------------------------------------------------------------------------
 def read_hardware():
-    """ถ่ายภาพ + อ่านเซนเซอร์จริง คืน dict ข้อมูลดิบ"""
-    from camera import SkyCamera
-    from sensors.pms5003 import PMS5003
-    from sensors.dht22 import DHT22
+    """
+    ถ่ายภาพ (จำเป็น) + อ่านเซนเซอร์ฝุ่น/อุณหภูมิ (ไม่บังคับ) คืน dict ข้อมูลดิบ
 
+    กล้อง = จำเป็น เพราะโมเดล AI ต้องใช้ภาพ
+    เซนเซอร์ฝุ่น PMS5003 / อุณหภูมิ DHT = ถ้าอ่านไม่ได้จะข้าม (คืน None)
+    เพื่อให้ยังถ่ายภาพ + รันโมเดล AI + ส่งขึ้น Dashboard ได้ แม้เซนเซอร์ยังไม่พร้อม
+    """
+    from camera import SkyCamera
+
+    # --- กล้อง (จำเป็น) ---
     cam = SkyCamera(config.CAMERA_INDEX, config.CAMERA_WIDTH, config.CAMERA_HEIGHT)
     frame, image_path = cam.capture()
 
-    with PMS5003(config.PMS5003_PORT, config.PMS5003_BAUD) as pms:
-        pm = pms.read()
-
-    dht = DHT22(config.DHT22_PIN, config.DHT_TYPE)
+    # --- เซนเซอร์ฝุ่น PMS5003 (ไม่บังคับ) ---
+    pm2_5 = pm1_0 = pm10 = None
     try:
-        th = dht.read()
-    finally:
-        dht.close()
+        from sensors.pms5003 import PMS5003
+        with PMS5003(config.PMS5003_PORT, config.PMS5003_BAUD) as pms:
+            pm = pms.read()
+        pm2_5, pm1_0, pm10 = pm.pm2_5, pm.pm1_0, pm.pm10
+    except Exception as err:
+        print(f"  ⚠️  อ่านเซนเซอร์ฝุ่น (PMS5003) ไม่ได้ — ข้ามไปก่อน: {err}")
+
+    # --- เซนเซอร์อุณหภูมิ/ความชื้น DHT (ไม่บังคับ) ---
+    temperature = humidity = None
+    try:
+        from sensors.dht22 import DHT22
+        dht = DHT22(config.DHT22_PIN, config.DHT_TYPE)
+        try:
+            th = dht.read()
+            temperature, humidity = th.temperature, th.humidity
+        finally:
+            dht.close()
+    except Exception as err:
+        print(f"  ⚠️  อ่านเซนเซอร์อุณหภูมิ (DHT) ไม่ได้ — ข้ามไปก่อน: {err}")
 
     return {
         "frame": frame,
         "image_path": image_path,
-        "pm2_5": pm.pm2_5,
-        "pm1_0": pm.pm1_0,
-        "pm10": pm.pm10,
-        "temperature": th.temperature,
-        "humidity": th.humidity,
+        "pm2_5": pm2_5,
+        "pm1_0": pm1_0,
+        "pm10": pm10,
+        "temperature": temperature,
+        "humidity": humidity,
     }
 
 
@@ -164,22 +183,27 @@ def run_once(simulate: bool = False, model=None, model_kind: str | None = None):
     print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] เริ่มเก็บข้อมูล 1 รอบ")
 
     raw = read_simulated() if simulate else read_hardware()
-    print(f"  📷 ภาพ: {os.path.basename(raw['image_path'])}")
-    print(f"  🌫️  PM2.5 จริง = {raw['pm2_5']:.1f} µg/m³ | "
-          f"🌡️ {raw['temperature']:.1f}°C | 💧 {raw['humidity']:.0f}%")
 
-    # 3) เก็บลง Dataset (Ground Truth)
+    # ค่าเซนเซอร์อาจไม่มีบางตัว (None) ในโหมดจริง — แสดงเป็น "—"
+    def _fmt(v, nd=1):
+        return f"{v:.{nd}f}" if v is not None else "—"
+    print(f"  📷 ภาพ: {os.path.basename(raw['image_path'])}")
+    print(f"  🌫️  PM2.5 จริง = {_fmt(raw['pm2_5'])} µg/m³ | "
+          f"🌡️ {_fmt(raw['temperature'])}°C | 💧 {_fmt(raw['humidity'], 0)}%")
+
+    # 3) เก็บลง Dataset (Ground Truth) — เฉพาะเมื่อมีค่าฝุ่นจริงไว้ใช้เทรน
     features = None
     if raw["frame"] is not None:
         features = extract_features(raw["frame"])
-    dataset.append_sample(
-        image_path=raw["image_path"],
-        pm2_5=raw["pm2_5"], pm1_0=raw["pm1_0"], pm10=raw["pm10"],
-        temperature=raw["temperature"], humidity=raw["humidity"],
-        features=features,
-    )
+    if raw["pm2_5"] is not None:
+        dataset.append_sample(
+            image_path=raw["image_path"],
+            pm2_5=raw["pm2_5"], pm1_0=raw["pm1_0"], pm10=raw["pm10"],
+            temperature=raw["temperature"], humidity=raw["humidity"],
+            features=features,
+        )
 
-    # 4) ถ้ามีโมเดล -> AI วิเคราะห์ภาพ + เปรียบเทียบกับค่าจริง
+    # 4) ถ้ามีโมเดล -> AI วิเคราะห์ภาพ (+ เทียบกับค่าจริงถ้ามี)
     #    Edge Impulse ทำนายจาก "ภาพ" โดยตรง / scikit-learn ทำนายจาก "ฟีเจอร์"
     predicted = None
     pred = None
@@ -190,21 +214,31 @@ def run_once(simulate: bool = False, model=None, model_kind: str | None = None):
             pred = model.predict(features)
     if pred is not None:
         predicted = pred.as_dict()
-        err = abs(pred.pm25 - raw["pm2_5"])
-        print(f"  🤖 AI ประเมิน = {pred.pm25:.1f} µg/m³ "
-              f"({pred.haze}, เชื่อมั่น {pred.confidence:.0f}%) | "
-              f"ต่างจากค่าจริง {err:.1f}")
+        msg = (f"  🤖 AI ประเมิน = {pred.pm25:.1f} µg/m³ "
+               f"({pred.haze}, เชื่อมั่น {pred.confidence:.0f}%)")
+        if raw["pm2_5"] is not None:
+            msg += f" | ต่างจากค่าจริง {abs(pred.pm25 - raw['pm2_5']):.1f}"
+        print(msg)
 
-    # ค่าที่จะแสดงบน Dashboard: ใช้ค่าที่ AI ประเมิน ถ้ายังไม่มีโมเดลใช้ค่าเซนเซอร์
-    display_pm25 = predicted["pm25"] if predicted else round(raw["pm2_5"], 1)
+    # ค่าที่จะแสดงบน Dashboard: ใช้ค่าที่ AI ประเมินก่อน, ถ้าไม่มีโมเดลใช้ค่าเซนเซอร์
+    if predicted:
+        display_pm25 = predicted["pm25"]
+    elif raw["pm2_5"] is not None:
+        display_pm25 = round(raw["pm2_5"], 1)
+    else:
+        display_pm25 = 0.0            # ไม่มีทั้งโมเดลและเซนเซอร์
     cat = air_quality_category(display_pm25)
+
+    def _num_or_blank(v, nd=1):
+        return round(v, nd) if v is not None else ""   # "" -> backend เก็บเป็นค่าว่าง
+
     payload = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "station_id": config.STATION_ID,
         "pm2_5": display_pm25,
-        "pm2_5_sensor": round(raw["pm2_5"], 1),   # ค่าจริงจาก PMS5003
-        "temperature": round(raw["temperature"], 1),
-        "humidity": round(raw["humidity"], 0),
+        "pm2_5_sensor": _num_or_blank(raw["pm2_5"]),   # ค่าจริงจาก PMS5003 (ถ้ามี)
+        "temperature": _num_or_blank(raw["temperature"]),
+        "humidity": _num_or_blank(raw["humidity"], 0),
         "haze": haze_level(display_pm25),
         "confidence": predicted["confidence"] if predicted else 100.0,
         "quality_label": cat["label"],
