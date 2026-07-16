@@ -29,7 +29,7 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "data", "images")
 
 # กุญแจ API ให้ตรงกับฝั่ง Pi (config.BACKEND_API_KEY)
 API_KEY = os.getenv("BACKEND_API_KEY", "changeme-secret-key")
-STATION_NAME = os.getenv("STATION_NAME", "โรงเรียนบ้านยะขานทา อ.ปาย จ.แม่ฮ่องสอน")
+STATION_NAME = os.getenv("STATION_NAME", "โรงเรียนปายวิทยาคาร อ.ปาย จ.แม่ฮ่องสอน")
 
 app = Flask(__name__, static_folder=None)
 
