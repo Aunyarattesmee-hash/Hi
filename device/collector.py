@@ -41,7 +41,7 @@ def read_hardware():
     with PMS5003(config.PMS5003_PORT, config.PMS5003_BAUD) as pms:
         pm = pms.read()
 
-    dht = DHT22(config.DHT22_PIN)
+    dht = DHT22(config.DHT22_PIN, config.DHT_TYPE)
     try:
         th = dht.read()
     finally:

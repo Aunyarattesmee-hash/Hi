@@ -20,8 +20,10 @@ STATION_ID = os.getenv("STATION_ID", "PAI-01")
 PMS5003_PORT = os.getenv("PMS5003_PORT", "/dev/serial0")
 PMS5003_BAUD = int(os.getenv("PMS5003_BAUD", "9600"))
 
-# DHT22 ต่อกับ GPIO (ตัวอย่างใช้ GPIO4 = pin 7)
+# เซนเซอร์อุณหภูมิ/ความชื้น ต่อกับ GPIO (ตัวอย่างใช้ GPIO4 = pin 7)
 DHT22_PIN = os.getenv("DHT22_PIN", "D4")  # รูปแบบของไลบรารี adafruit-blinka เช่น D4, D17
+# ชนิดเซนเซอร์: "DHT22" หรือ "DHT11" (การต่อสายเหมือนกัน ต่างแค่ชิป)
+DHT_TYPE = os.getenv("DHT_TYPE", "DHT22").upper()
 
 # กล้อง Logitech C270 (USB webcam) -> มักเป็น /dev/video0 (index 0)
 CAMERA_INDEX = int(os.getenv("CAMERA_INDEX", "0"))

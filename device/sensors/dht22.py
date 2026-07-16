@@ -34,7 +34,11 @@ class THReading:
 
 
 class DHT22:
-    def __init__(self, pin_name: str = "D4"):
+    """
+    รองรับทั้ง DHT22 และ DHT11 (เลือกด้วยพารามิเตอร์ sensor_type)
+    การต่อสายเหมือนกันทั้งสองรุ่น — ต่างแค่ชิปข้างใน
+    """
+    def __init__(self, pin_name: str = "D4", sensor_type: str = "DHT22"):
         if adafruit_dht is None or board is None:
             raise RuntimeError(
                 "ไม่พบไลบรารี adafruit-circuitpython-dht — "
@@ -43,8 +47,10 @@ class DHT22:
         pin = getattr(board, pin_name, None)
         if pin is None:
             raise ValueError(f"ไม่รู้จักขา GPIO ชื่อ '{pin_name}' (ตัวอย่างที่ถูกต้อง: D4)")
+        sensor_type = (sensor_type or "DHT22").upper()
+        DeviceClass = adafruit_dht.DHT11 if sensor_type == "DHT11" else adafruit_dht.DHT22
         # use_pulseio=False เสถียรกว่าบน Raspberry Pi 5
-        self._dev = adafruit_dht.DHT22(pin, use_pulseio=False)
+        self._dev = DeviceClass(pin, use_pulseio=False)
 
     def read(self, retries: int = 5, delay: float = 2.0) -> THReading:
         last_err = None
@@ -68,9 +74,9 @@ class DHT22:
 
 
 if __name__ == "__main__":
-    from config import DHT22_PIN
+    from config import DHT22_PIN, DHT_TYPE
 
-    dev = DHT22(DHT22_PIN)
+    dev = DHT22(DHT22_PIN, DHT_TYPE)
     try:
         for _ in range(5):
             print(dev.read())
