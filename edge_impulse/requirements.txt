@@ -3,6 +3,12 @@ requests>=2.31            # อัปโหลดผ่าน Ingestion API
 opencv-python>=4.8        # อ่าน/แปลงภาพ
 
 # สำหรับรันโมเดล .eim บน Raspberry Pi 5 (ติดตั้งบน Pi เท่านั้น)
-#   pip install edge_impulse_linux
-# และ Edge Impulse CLI (ผ่าน npm):
+#   ต้องมี system package ก่อน:  sudo apt install -y portaudio19-dev
+edge_impulse_linux>=1.0
+# edge_impulse_linux ไม่ประกาศ dependency พวกนี้ครบ ต้องลงเองด้วย:
+pyaudio>=0.2.13          # edge_impulse_linux/audio.py เรียกใช้ (ต้องมี portaudio19-dev)
+six>=1.16                # edge_impulse_linux/audio.py เรียกใช้
+psutil>=5.9              # edge_impulse_linux เรียกใช้
+
+# และ Edge Impulse CLI (ผ่าน npm) ถ้าจะดาวน์โหลด .eim ด้วย CLI:
 #   npm install -g edge-impulse-cli
