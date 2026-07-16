@@ -105,27 +105,26 @@ else:
 > ⚠️ โปรเจกต์ต้องเป็นแบบ **Image Classification** (แบ่งภาพเป็นกลุ่ม เช่น เห็นภูเขาชัด/เล็กน้อย/ไม่เห็น)
 > ไม่ใช่ Object Detection
 
-**1) โหลดโมเดลลง Pi** (ผ่าน Edge Impulse CLI):
+**1) โหลดโมเดลลง Pi** (ผ่าน Edge Impulse CLI) แล้ววางไฟล์ชื่อ **`pm25-model.eim`**:
 ```bash
 edge-impulse-linux-runner --download model.eim
 mv model.eim ~/Documents/PM25AIMonitor*/device/data/pm25-model.eim
+pip install edge_impulse_linux          # ไลบรารีสำหรับรัน .eim บน Pi
 ```
 
-**2) โค้ดที่ใช้โมเดล .eim** (`edge_impulse/ei_inference.py`):
+**2) โค้ดโหลดโมเดล .eim ให้อัตโนมัติ** — ไม่ต้องแก้อะไร `collector.py` จะตรวจเจอไฟล์
+`device/data/pm25-model.eim` แล้วใช้โมเดล Edge Impulse **ก่อน** โมเดล `.joblib` เอง:
 ```python
-from edge_impulse_linux.image import ImageImpulseRunner
-
-class EdgeImpulsePM25:
-    def __init__(self, model_path):
-        self.runner = ImageImpulseRunner(model_path)   # ← โหลดไฟล์ .eim
-        self.runner.init()
-
-    def predict(self, frame):
-        features, _ = self.runner.get_features_from_image(frame)
-        res = self.runner.classify(features)           # ← ให้โมเดลจำแนกภาพ
-        # แปลงผลเป็นระดับฝุ่น น้อย/ปานกลาง/มาก
-        return res
+# collector.py -> load_model()
+if os.path.exists(config.EIM_MODEL_PATH):      # ← เจอไฟล์ .eim
+    from ei_inference import EdgeImpulsePM25
+    model = EdgeImpulsePM25(config.EIM_MODEL_PATH)   # ← โหลดมาใช้ทำนายจากภาพ
+    return model, "edge_impulse"
 ```
+
+> **แค่วางไฟล์ `pm25-model.eim` ไว้ที่ `device/data/` แล้วรัน `./run.sh` โค้ดก็หยิบไปใช้เอง**
+> (ตัวรันโมเดลอยู่ที่ `edge_impulse/ei_inference.py` — คืนค่า PM2.5 / ระดับหมอก / ความเชื่อมั่น
+> รูปแบบเดียวกับโมเดล scikit-learn ทุกอย่าง)
 
 ---
 

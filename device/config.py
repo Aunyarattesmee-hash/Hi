@@ -40,7 +40,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.getenv("DATA_DIR", os.path.join(BASE_DIR, "data"))
 IMAGE_DIR = os.path.join(DATA_DIR, "images")          # ภาพท้องฟ้าที่ถ่าย
 DATASET_CSV = os.path.join(DATA_DIR, "dataset.csv")   # dataset สำหรับเทรนโมเดล
-MODEL_PATH = os.path.join(DATA_DIR, "pm25_model.joblib")
+MODEL_PATH = os.path.join(DATA_DIR, "pm25_model.joblib")   # โมเดล scikit-learn (เทรนบน Pi)
+# โมเดลที่เทรนจาก Edge Impulse (Export เป็น Linux AARCH64 .eim แล้ววางไว้ที่นี่)
+# ถ้ามีไฟล์นี้ collector.py จะใช้โมเดล Edge Impulse ก่อน (ทำนายจากภาพโดยตรง)
+EIM_MODEL_PATH = os.getenv("EIM_MODEL_PATH", os.path.join(DATA_DIR, "pm25-model.eim"))
 
 # ---------------------------------------------------------------------------
 # รอบการทำงาน

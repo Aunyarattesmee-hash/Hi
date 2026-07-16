@@ -27,6 +27,40 @@ from model import PM25Model, extract_features, air_quality_category, haze_level
 
 
 # ---------------------------------------------------------------------------
+# เลือกโมเดล AI ที่จะใช้ (Edge Impulse .eim มาก่อน, ไม่มีก็ใช้ scikit-learn .joblib)
+# ---------------------------------------------------------------------------
+def load_model():
+    """
+    คืน (model, kind):
+      kind = "edge_impulse" -> โมเดล .eim ที่เทรนจาก Edge Impulse (ทำนายจากภาพ)
+      kind = "sklearn"      -> โมเดล .joblib ที่เทรนด้วย train.py (ทำนายจากฟีเจอร์)
+      kind = None           -> ยังไม่มีโมเดล ใช้ค่าจากเซนเซอร์ไปก่อน
+    """
+    # 1) Edge Impulse — ถ้ามีไฟล์ .eim ให้ใช้ก่อน
+    if os.path.exists(config.EIM_MODEL_PATH):
+        # ei_inference.py อยู่ในโฟลเดอร์ edge_impulse/ (นอก device/) ต้องเพิ่ม path
+        ei_dir = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "edge_impulse")
+        if ei_dir not in sys.path:
+            sys.path.insert(0, ei_dir)
+        try:
+            from ei_inference import EdgeImpulsePM25
+            model = EdgeImpulsePM25(config.EIM_MODEL_PATH)
+            print(f"โหลดโมเดล Edge Impulse จาก {config.EIM_MODEL_PATH}")
+            return model, "edge_impulse"
+        except Exception as err:
+            print(f"⚠️  พบไฟล์ .eim แต่โหลดไม่สำเร็จ ({err}) — จะลองใช้โมเดล scikit-learn แทน")
+
+    # 2) scikit-learn — โมเดลที่เทรนด้วย train.py
+    if PM25Model.exists(config.MODEL_PATH):
+        print(f"โหลดโมเดล AI (scikit-learn) จาก {config.MODEL_PATH}")
+        return PM25Model.load(config.MODEL_PATH), "sklearn"
+
+    # 3) ยังไม่มีโมเดล
+    return None, None
+
+
+# ---------------------------------------------------------------------------
 # การอ่านค่าจริงจากฮาร์ดแวร์
 # ---------------------------------------------------------------------------
 def read_hardware():
@@ -126,7 +160,7 @@ def push_to_backend(payload: dict, image_path: str):
 # ---------------------------------------------------------------------------
 # หนึ่งรอบการทำงาน
 # ---------------------------------------------------------------------------
-def run_once(simulate: bool = False, model: PM25Model | None = None):
+def run_once(simulate: bool = False, model=None, model_kind: str | None = None):
     print(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] เริ่มเก็บข้อมูล 1 รอบ")
 
     raw = read_simulated() if simulate else read_hardware()
@@ -146,9 +180,15 @@ def run_once(simulate: bool = False, model: PM25Model | None = None):
     )
 
     # 4) ถ้ามีโมเดล -> AI วิเคราะห์ภาพ + เปรียบเทียบกับค่าจริง
+    #    Edge Impulse ทำนายจาก "ภาพ" โดยตรง / scikit-learn ทำนายจาก "ฟีเจอร์"
     predicted = None
-    if model is not None and features is not None:
-        pred = model.predict(features)
+    pred = None
+    if model is not None:
+        if model_kind == "edge_impulse" and raw["frame"] is not None:
+            pred = model.predict(raw["frame"])
+        elif model_kind == "sklearn" and features is not None:
+            pred = model.predict(features)
+    if pred is not None:
         predicted = pred.as_dict()
         err = abs(pred.pm25 - raw["pm2_5"])
         print(f"  🤖 AI ประเมิน = {pred.pm25:.1f} µg/m³ "
@@ -192,24 +232,22 @@ def main():
 
     config.ensure_dirs()
 
-    # โหลดโมเดลถ้ามี (Deploy Model แล้ว)
-    model = None
-    if PM25Model.exists(config.MODEL_PATH):
-        model = PM25Model.load(config.MODEL_PATH)
-        print(f"โหลดโมเดล AI จาก {config.MODEL_PATH}")
-    else:
+    # โหลดโมเดลถ้ามี (Edge Impulse .eim ก่อน, ไม่มีก็ scikit-learn .joblib)
+    model, model_kind = load_model()
+    if model is None:
         print("ยังไม่มีโมเดล AI — จะเก็บ Dataset และแสดงค่าจากเซนเซอร์ไปก่อน")
-        print("เมื่อเก็บข้อมูลพอแล้วให้รัน:  python train.py")
+        print("• เทรนบน Pi:  python train.py  (ได้ไฟล์ .joblib)")
+        print("• หรือใช้ Edge Impulse: วางไฟล์ .eim ที่ device/data/pm25-model.eim")
 
     if args.once:
-        run_once(simulate=args.simulate, model=model)
+        run_once(simulate=args.simulate, model=model, model_kind=model_kind)
         return
 
     print(f"เริ่มทำงานแบบวนลูป (ทุก {args.interval} วินาที) — กด Ctrl+C เพื่อหยุด")
     try:
         while True:
             try:
-                run_once(simulate=args.simulate, model=model)
+                run_once(simulate=args.simulate, model=model, model_kind=model_kind)
             except Exception as err:
                 print(f"  ❌ เกิดข้อผิดพลาดในรอบนี้: {err}")
             time.sleep(args.interval)
