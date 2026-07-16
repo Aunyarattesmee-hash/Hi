@@ -26,6 +26,65 @@ except ImportError:
     cv2 = None
 
 
+# ---------------------------------------------------------------------------
+# จับคู่ชื่อกลุ่ม (label) จาก Edge Impulse -> ค่า PM2.5 โดยประมาณ (µg/m³)
+# แก้ตัวเลขตรงนี้ได้ตามต้องการ (คีย์ต้องเป็นตัวพิมพ์เล็กทั้งหมด)
+#   no smog        = ไม่มีฝุ่นควัน เห็นภูเขา ฟ้าแจ่มใส  -> ฝุ่นน้อย
+#   the smog clear = ควันน้อย เห็นภูเขาบางๆ            -> ฝุ่นปานกลาง
+#   thick smog     = ควันเยอะ ไม่เห็นภูเขา             -> ฝุ่นมาก
+# ---------------------------------------------------------------------------
+LABEL_PM25 = {
+    "no smog": 12.0,
+    "the smog clear": 35.0,
+    "thick smog": 90.0,
+    "background": 12.0,     # ไม่พบวัตถุ = ถือว่าฟ้าใส
+}
+DEFAULT_PM25 = 12.0
+
+
+def label_to_pm25(label) -> float:
+    """แปลงชื่อกลุ่มเป็นค่า PM2.5 (รองรับทั้งชื่อข้อความและชื่อที่เป็นตัวเลข)"""
+    if label is None:
+        return DEFAULT_PM25
+    key = str(label).strip().lower()
+    if key in LABEL_PM25:
+        return LABEL_PM25[key]
+    try:
+        return max(0.0, float(key))     # เผื่อกรณีตั้งชื่อกลุ่มเป็นตัวเลข
+    except ValueError:
+        return DEFAULT_PM25
+
+
+def dominant_label(result: dict):
+    """
+    หากลุ่มที่ 'เด่นที่สุด' จากผลของ Edge Impulse
+    รองรับ 3 แบบ: Object Detection (FOMO), Classification, Regression
+    คืน (label, confidence[0-1], is_regression, regression_value)
+    """
+    # 1) Object Detection (FOMO) -> รวมความมั่นใจของแต่ละกล่องตามกลุ่ม
+    boxes = result.get("bounding_boxes")
+    if boxes:
+        scores = {}
+        for b in boxes:
+            lbl = b.get("label")
+            scores[lbl] = scores.get(lbl, 0.0) + float(b.get("value", 0.0))
+        best = max(scores, key=scores.get)
+        conf = max(float(b.get("value", 0.0)) for b in boxes if b.get("label") == best)
+        return best, conf, False, None
+
+    # 2) Classification -> เอากลุ่มที่ความน่าจะเป็นสูงสุด
+    classes = result.get("classification")
+    if classes:
+        best = max(classes, key=classes.get)
+        return best, float(classes[best]), False, None
+
+    # 3) Regression -> ได้ค่าตัวเลขตรง ๆ
+    if "regression" in result:
+        return None, 0.9, True, float(result["regression"]["value"])
+
+    return None, 0.0, False, None
+
+
 class EdgeImpulsePM25:
     """โหลดและรันโมเดล .eim ของ Edge Impulse (regression: ทำนายค่า PM2.5)"""
 
@@ -50,24 +109,18 @@ class EdgeImpulsePM25:
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         features, _ = self.runner.get_features_from_image(rgb)
         res = self.runner.classify(features)
-
         result = res["result"]
-        # Regression -> ค่าจะอยู่ใน result["regression"]["value"]
-        # Classification -> เอาคลาสที่มีความน่าจะเป็นสูงสุด (fallback)
-        if "regression" in result:
-            pm25 = float(result["regression"]["value"])
+
+        # รองรับทั้ง FOMO (Object Detection), Classification และ Regression
+        label, conf, is_regression, reg_value = dominant_label(result)
+        if is_regression:
+            pm25 = max(0.0, reg_value)
             confidence = 90.0
         else:
-            classes = result.get("classification", {})
-            # กรณีตั้งเป็น classification ให้ตีความชื่อคลาสเป็นตัวเลข
-            best = max(classes, key=classes.get) if classes else "0"
-            try:
-                pm25 = float(best)
-            except ValueError:
-                pm25 = 0.0
-            confidence = float(classes.get(best, 0.0)) * 100.0
+            # แปลงชื่อกลุ่ม (no smog / the smog clear / thick smog) -> ค่า PM2.5
+            pm25 = label_to_pm25(label)
+            confidence = round(conf * 100.0, 1)
 
-        pm25 = max(0.0, pm25)
         return Prediction(
             pm25=pm25,
             haze=haze_level(pm25),
