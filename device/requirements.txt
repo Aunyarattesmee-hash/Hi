@@ -8,7 +8,8 @@ numpy>=1.24
 # เซนเซอร์
 pyserial>=3.5                      # PMS5003 (UART)
 adafruit-circuitpython-dht>=4.0    # DHT22
-# บน Raspberry Pi ต้องมี libgpiod:  sudo apt install libgpiod2
+lgpio>=0.2                         # จำเป็นบน Raspberry Pi 5 (adafruit-blinka ใช้คุม GPIO)
+# บน Raspberry Pi ต้องมี libgpiod:  sudo apt install libgpiod3
 
 # โมเดล AI
 scikit-learn>=1.3
