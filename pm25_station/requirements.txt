@@ -1,0 +1,12 @@
+# ไลบรารีที่ต้องติดตั้งบน Raspberry Pi 5
+# ติดตั้งทั้งหมดด้วยคำสั่ง (ใน Thonny เมนู Tools > Manage packages หรือใน Terminal):
+#     pip install -r requirements.txt
+
+flask>=3.0                       # เว็บเซิร์ฟเวอร์ (Dashboard)
+pyserial>=3.5                    # อ่าน PMS3003 ผ่าน UART
+opencv-python>=4.8               # ถ่ายภาพจากกล้อง + วิเคราะห์ภาพ
+numpy>=1.24                      # คำนวณค่าจากภาพ
+adafruit-circuitpython-dht>=4.0  # อ่าน DHT22 (อุณหภูมิ/ความชื้น)
+
+# หมายเหตุ: โหมดจำลอง (USE_MOCK = True) ใช้แค่ flask อย่างเดียวก็รันได้
+# ส่วน pyserial / opencv / dht จำเป็นตอนใช้เซนเซอร์จริง (USE_MOCK = False)

@@ -1,6 +1,0 @@
-# ไลบรารีสำหรับ Backend (หลังบ้าน)
-# ติดตั้งด้วย: pip install -r requirements.txt
-
-Flask>=3.0
-Werkzeug>=3.0
-gunicorn>=21.2      # สำหรับรันโปรดักชัน

@@ -20,21 +20,22 @@ class Database:
             CREATE TABLE IF NOT EXISTS readings (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 ts          REAL,     -- เวลา (epoch seconds)
-                pm2_5       REAL,     -- ค่าฝุ่น PM2.5 (µg/m³)
+                pm2_5       REAL,     -- ค่าฝุ่น PM2.5 จาก PMS3003 (µg/m³)
                 pm10        REAL,
-                temperature REAL,     -- °C
-                humidity    REAL,     -- %
+                temperature REAL,     -- °C จาก DHT22
+                humidity    REAL,     -- % จาก DHT22
+                haze        TEXT,     -- ระดับฝุ่นควันที่ AI ดูจากภาพ (ข้อความ)
                 image       TEXT      -- ชื่อไฟล์ภาพ (ถ้ามี)
             )
             """
         )
         self.conn.commit()
 
-    def insert(self, pm2_5, pm10, temperature, humidity, image=None):
+    def insert(self, pm2_5, pm10, temperature, humidity, haze=None, image=None):
         self.conn.execute(
-            "INSERT INTO readings (ts, pm2_5, pm10, temperature, humidity, image)"
-            " VALUES (?, ?, ?, ?, ?, ?)",
-            (time.time(), pm2_5, pm10, temperature, humidity, image),
+            "INSERT INTO readings (ts, pm2_5, pm10, temperature, humidity, haze, image)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (time.time(), pm2_5, pm10, temperature, humidity, haze, image),
         )
         self.conn.commit()
 

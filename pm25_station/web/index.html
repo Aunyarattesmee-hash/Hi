@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบติดตามค่าฝุ่น PM2.5</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>🌫️ ระบบติดตามค่าฝุ่น PM2.5</h1>
+    <div id="updated">กำลังโหลด...</div>
+  </header>
+
+  <main>
+    <!-- การ์ดค่า PM2.5 หลัก -->
+    <section class="card big" id="pm-card">
+      <div class="label">PM2.5 (จากเซนเซอร์ PMS3003)</div>
+      <div class="value"><span id="pm25">--</span> <small>µg/m³</small></div>
+      <div class="badge" id="quality">--</div>
+    </section>
+
+    <!-- ระดับฝุ่นควันจากภาพ -->
+    <section class="card" id="haze-card">
+      <div class="label">ระดับฝุ่นควัน (AI ดูจากภาพ)</div>
+      <div class="haze-badge" id="haze">--</div>
+    </section>
+
+    <!-- อุณหภูมิ / ความชื้น -->
+    <section class="card">
+      <div class="label">อุณหภูมิ</div>
+      <div class="value">🌡️ <span id="temp">--</span> <small>°C</small></div>
+    </section>
+    <section class="card">
+      <div class="label">ความชื้น</div>
+      <div class="value">💧 <span id="humidity">--</span> <small>%</small></div>
+    </section>
+
+    <!-- ภาพจากกล้อง -->
+    <section class="card wide">
+      <div class="label">ภาพท้องฟ้าจากกล้อง</div>
+      <img id="photo" alt="ยังไม่มีภาพ" src="">
+      <div id="no-photo" class="hint">โหมดจำลอง — ยังไม่มีภาพจริง</div>
+    </section>
+
+    <!-- กราฟแนวโน้ม -->
+    <section class="card wide">
+      <div class="label">กราฟแนวโน้ม PM2.5 (ล่าสุด)</div>
+      <canvas id="chart" width="800" height="260"></canvas>
+    </section>
+  </main>
+
+  <footer>
+    ค่า PM2.5 มาจากเซนเซอร์ PMS3003 · ระดับฝุ่นควันมาจากการวิเคราะห์ภาพด้วย AI
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
